@@ -42,9 +42,17 @@ export class World {
   constructor(public seed: number, public edits: Edits = {}) {}
 
   height(x: number, z: number) {
-    const n = fbm(x / 48, z / 48, this.seed, 4);
-    const m = fbm(x / 170, z / 170, this.seed + 7, 2);
-    return Math.max(4, Math.min(H - 10, Math.floor(6 + n * 20 + m * 22)));
+    // gentle savanna plains
+    const n = fbm(x / 64, z / 64, this.seed, 4);
+    const m = fbm(x / 200, z / 200, this.seed + 7, 2);
+    let h = 14 + n * 8 + m * 10;
+    // granite kopjes: rare steep rock outcrops
+    const k = fbm(x / 22, z / 22, this.seed + 11, 3);
+    if (k > 0.6) h += (k - 0.6) * 55;
+    return Math.max(4, Math.min(H - 10, Math.floor(h)));
+  }
+  isKopje(x: number, z: number) {
+    return fbm(x / 22, z / 22, this.seed + 11, 3) > 0.64;
   }
 
   getChunk(cx: number, cz: number) {
@@ -65,32 +73,63 @@ export class World {
         const wx = cx * CH + x, wz = cz * CH + z;
         const h = this.height(wx, wz);
         heights[z * CH + x] = h;
-        const beach = h <= 18;
+        const beach = h <= 15;
+        const rock = this.isKopje(wx, wz);
         for (let y = 0; y <= h; y++) {
           let id: number = B.STONE;
           if (y === 0) id = B.BEDROCK;
-          else if (y >= h - 3) id = y === h ? (beach ? B.SAND : B.GRASS) : beach ? B.SAND : B.DIRT;
+          else if (!rock && y >= h - 4) id = y === h ? (beach ? B.SAND : B.GRASS) : beach ? B.SAND : B.DIRT;
           c[idx(x, y, z)] = id;
         }
       }
-    // trees (kept inside the chunk)
-    for (let z = 2; z < CH - 2; z++)
-      for (let x = 2; x < CH - 2; x++) {
+    const put = (x: number, y: number, z: number, id: number, force = false) => {
+      if (x < 0 || z < 0 || x >= CH || z >= CH || y < 1 || y >= H) return;
+      const i = idx(x, y, z);
+      if (force || c[i] === 0) c[i] = id;
+    };
+    // flora (kept inside the chunk)
+    for (let z = 4; z < CH - 4; z++)
+      for (let x = 4; x < CH - 4; x++) {
         const wx = cx * CH + x, wz = cz * CH + z;
         const h = heights[z * CH + x];
-        if (c[idx(x, h, z)] !== B.GRASS || hash2(wx, wz, this.seed + 3) > 0.018) continue;
-        const th = 4 + Math.floor(hash2(wx, wz, this.seed + 5) * 2);
-        for (let dy = -2; dy <= 1; dy++) {
-          const r = dy >= 0 ? 1 : 2;
-          for (let dz = -r; dz <= r; dz++)
-            for (let dx = -r; dx <= r; dx++) {
-              if (r === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-              const y = h + th + dy;
-              if (y < H && c[idx(x + dx, y, z + dz)] === 0) c[idx(x + dx, y, z + dz)] = B.LEAVES;
+        if (c[idx(x, h, z)] !== B.GRASS) continue;
+        const r = hash2(wx, wz, this.seed + 3);
+        if (r < 0.0025) {
+          // Baobab: fat 2x2 swollen trunk, short branches, small crown
+          const th = 8 + Math.floor(hash2(wx, wz, this.seed + 5) * 4);
+          for (let y = h + 1; y <= h + th; y++)
+            for (let dz = -1; dz <= 1; dz++)
+              for (let dx = -1; dx <= 1; dx++) {
+                const mid = y - h > 2 && y - h < th - 2;
+                if (!mid && Math.abs(dx) + Math.abs(dz) === 2) continue;
+                put(x + dx, y, z + dz, B.LOG, true);
+              }
+          const top = h + th;
+          for (const [bx, bz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) {
+            for (let s2 = 1; s2 <= 2; s2++) put(x + bx * (1 + s2), top + s2 - 1, z + bz * (1 + s2), B.LOG, true);
+            const lx = x + bx * 3, lz = z + bz * 3, ly = top + 2;
+            for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { put(lx + dx, ly, lz + dz, B.LEAVES); if (!dx || !dz) put(lx + dx, ly + 1, lz + dz, B.LEAVES); }
+          }
+          c[idx(x, h, z)] = B.DIRT;
+        } else if (r < 0.014) {
+          // Acacia: thin leaning trunk, wide flat umbrella canopy
+          const th = 4 + Math.floor(hash2(wx, wz, this.seed + 5) * 3);
+          const lean = hash2(wx, wz, this.seed + 9);
+          const ldx = lean < 0.25 ? 1 : lean < 0.5 ? -1 : 0, ldz = lean > 0.75 ? 1 : lean > 0.5 ? -1 : 0;
+          let tx = x, tz = z;
+          for (let y = h + 1; y <= h + th; y++) {
+            if (y === h + th - 1) { tx += ldx; tz += ldz; }
+            put(tx, y, tz, B.LOG, true);
+          }
+          const cy = h + th + 1;
+          for (let dz = -3; dz <= 3; dz++)
+            for (let dx = -3; dx <= 3; dx++) {
+              const d = dx * dx + dz * dz;
+              if (d <= 10) put(tx + dx, cy, tz + dz, B.LEAVES);
+              if (d <= 3) put(tx + dx, cy + 1, tz + dz, B.LEAVES);
             }
+          c[idx(x, h, z)] = B.DIRT;
         }
-        for (let y = h + 1; y <= h + th; y++) c[idx(x, y, z)] = B.LOG;
-        c[idx(x, h, z)] = B.DIRT;
       }
     const e = this.edits[chunkKey(cx, cz)];
     if (e) for (const k in e) c[+k] = e[k];
