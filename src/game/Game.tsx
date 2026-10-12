@@ -13,6 +13,8 @@ import { useUI } from "./state";
 const RADIUS = isTouchDevice() ? 3 : 4;
 const SHADOW_RES = isTouchDevice() ? 1024 : 2048;
 const WHITE = new THREE.Color(1, 1, 1);
+const MOON_COL = new THREE.Color("#b4ceff");
+const MOON_AMB = new THREE.Color("#3a5580");
 const DAY_LENGTH = 480; // seconds per full day
 const REACH = 5;
 
