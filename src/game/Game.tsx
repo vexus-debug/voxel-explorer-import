@@ -101,16 +101,55 @@ function Sky() {
       s.target.updateMatrixWorld();
       s.castShadow = light > 0.05;
     }
-    sunMesh.current?.position.set(g.pos.x + Math.cos(a) * 120, g.pos.y + sy * 120, g.pos.z + 30);
-    moonMesh.current?.position.set(g.pos.x - Math.cos(a) * 120, g.pos.y - sy * 120, g.pos.z - 30);
-    sunMesh.current?.lookAt(g.pos);
-    moonMesh.current?.lookAt(g.pos);
-    acc.current += dt;
-    if (acc.current > 1) {
-      acc.current = 0;
-      emit();
+    // sky dome follows the camera; sun & moon are drawn as round discs with glow in its shader
+    if (sunMesh.current) {
+      sunMesh.current.position.set(g.pos.x, g.pos.y + 1.62, g.pos.z);
+      const u = skyMat.uniforms;
+      u.sunDir.value.set(Math.cos(a), sy, 0.25).normalize();
+      u.zenith.value.copy(col).multiplyScalar(0.55 + 0.15 * light).lerp(night, (1 - light) * 0.5);
+      u.horizon.value.copy(col).lerp(WHITE, 0.18 * light);
+      u.sunCol.value.setRGB(1, 0.75 + 0.2 * Math.min(1, Math.max(0, sy * 2)), 0.5 + 0.35 * Math.min(1, Math.max(0, sy * 2)));
+      u.night.value = 1 - light;
     }
   });
+  const skyMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          sunDir: { value: new THREE.Vector3(1, 1, 0).normalize() },
+          zenith: { value: new THREE.Color("#c98a4a") },
+          horizon: { value: new THREE.Color("#f2c98a") },
+          sunCol: { value: new THREE.Color("#fff2c0") },
+          night: { value: 0 },
+        },
+        vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: `
+          uniform vec3 sunDir, zenith, horizon, sunCol; uniform float night; varying vec3 vDir;
+          float h(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,45.164)))*43758.5453); }
+          void main(){
+            vec3 d = normalize(vDir);
+            float t = pow(clamp(d.y,0.0,1.0), 0.45);
+            vec3 c = mix(horizon, zenith, t);
+            if (d.y < 0.0) c = horizon * (1.0 + d.y*0.3);
+            float s = dot(d, sunDir);
+            float disc = smoothstep(0.9990, 0.9994, s);
+            float glow = pow(max(s,0.0), 600.0)*1.2 + pow(max(s,0.0), 40.0)*0.35 + pow(max(s,0.0), 6.0)*0.12;
+            c += sunCol * (disc*2.5 + glow) * (1.0 - night*0.9);
+            float m = dot(d, -sunDir);
+            float moon = smoothstep(0.9993, 0.9996, m);
+            c = mix(c, vec3(0.88,0.9,0.95), moon * night);
+            c += vec3(0.6,0.65,0.8) * pow(max(m,0.0), 200.0) * 0.25 * night;
+            vec3 g = floor(d*400.0);
+            float star = step(0.9975, h(g)) * night * smoothstep(0.0, 0.3, d.y);
+            c += vec3(star);
+            gl_FragColor = vec4(c, 1.0);
+          }`,
+      }),
+    [],
+  );
   return (
     <>
       <fog attach="fog" args={["#f2c98a", 18, RADIUS * CH - 4]} />
@@ -130,13 +169,8 @@ function Sky() {
         shadow-bias={-0.0006}
         shadow-normalBias={0.04}
       />
-      <mesh ref={sunMesh}>
-        <planeGeometry args={[14, 14]} />
-        <meshBasicMaterial color="#fff6c4" fog={false} />
-      </mesh>
-      <mesh ref={moonMesh}>
-        <planeGeometry args={[9, 9]} />
-        <meshBasicMaterial color="#dfe6f2" fog={false} />
+      <mesh ref={sunMesh} material={skyMat} renderOrder={-1} frustumCulled={false}>
+        <sphereGeometry args={[200, 32, 16]} />
       </mesh>
     </>
   );
