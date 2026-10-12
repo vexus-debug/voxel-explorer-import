@@ -302,6 +302,8 @@ function Player({ zt }: { zt: React.MutableRefObject<ZombieTarget> }) {
   const regen = useRef(0);
   const highlight = useRef<THREE.LineSegments>(null);
   const clock = useRef(0);
+  const eyeOff = useRef(0);
+  const bobT = useRef(0);
   const dir = useMemo(() => new THREE.Vector3(), []);
   const edges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(1.005, 1.005, 1.005)), []);
 
@@ -434,7 +436,7 @@ function Player({ zt }: { zt: React.MutableRefObject<ZombieTarget> }) {
     g.vel.z += (wish.z - g.vel.z) * blend;
     if (active && (k["Space"] || touch.jump) && onGround.current) g.vel.y = 8.6;
     g.vel.y = Math.max(-50, g.vel.y - 28 * dt);
-    const res = moveEntity(g.world, g.pos, g.vel, dt, 0.3, 1.8);
+    const res = moveEntity(g.world, g.pos, g.vel, dt, 0.3, 1.8, true);
     onGround.current = res.onGround;
 
     // fall damage
@@ -460,7 +462,14 @@ function Player({ zt }: { zt: React.MutableRefObject<ZombieTarget> }) {
       if (ui.hurt === 0) emit(); else emitThrottled();
     }
 
-    camera.position.set(g.pos.x, g.pos.y + 1.62, g.pos.z);
+    // smooth eye height after step-ups, plus a gentle walking head bob
+    eyeOff.current = Math.max(-1, eyeOff.current - (res.stepped || 0));
+    eyeOff.current *= Math.exp(-12 * dt);
+    const speedH = Math.hypot(g.vel.x, g.vel.z);
+    if (res.onGround && speedH > 0.5) bobT.current += dt * speedH * 1.9;
+    const bobAmt = res.onGround ? Math.min(1, speedH / 5) : 0;
+    const bob = Math.sin(bobT.current * 2) * 0.05 * bobAmt;
+    camera.position.set(g.pos.x, g.pos.y + 1.62 + eyeOff.current + bob, g.pos.z);
 
     // targeting
     const t = raycast(g.world, camera.position, dir, REACH);
