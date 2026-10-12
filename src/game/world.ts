@@ -42,13 +42,18 @@ export class World {
   constructor(public seed: number, public edits: Edits = {}) {}
 
   height(x: number, z: number) {
-    // gentle savanna plains
-    const n = fbm(x / 64, z / 64, this.seed, 4);
-    const m = fbm(x / 200, z / 200, this.seed + 7, 2);
-    let h = 14 + n * 8 + m * 10;
-    // granite kopjes: rare steep rock outcrops
+    // rolling savanna: domain-warped broad swells with soft micro-relief
+    const wx = x + (fbm(x / 90, z / 90, this.seed + 21, 2) - 0.5) * 40;
+    const wz = z + (fbm(x / 90, z / 90, this.seed + 23, 2) - 0.5) * 40;
+    const n = fbm(wx / 70, wz / 70, this.seed, 4);
+    const m = fbm(wx / 220, wz / 220, this.seed + 7, 2);
+    let h = 14 + n * 7 + m * 12;
+    // dry riverbeds (wadis) cut gently into the plains
+    const r = Math.abs(fbm(wx / 120, wz / 120, this.seed + 31, 2) - 0.5);
+    if (r < 0.04) h -= (1 - r / 0.04) ** 2 * 3;
+    // granite kopjes: rounded dome-shaped outcrops instead of spikes
     const k = fbm(x / 22, z / 22, this.seed + 11, 3);
-    if (k > 0.6) h += (k - 0.6) * 55;
+    if (k > 0.6) { const t = Math.min(1, (k - 0.6) / 0.12); h += t * t * (3 - 2 * t) * 12; }
     return Math.max(4, Math.min(H - 10, Math.floor(h)));
   }
   isKopje(x: number, z: number) {
