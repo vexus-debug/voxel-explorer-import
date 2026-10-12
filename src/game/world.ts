@@ -256,16 +256,27 @@ export function collides(world: World, p: THREE.Vector3, hw: number, h: number) 
   return false;
 }
 
-export function moveEntity(world: World, p: THREE.Vector3, v: THREE.Vector3, dt: number, hw: number, h: number) {
-  let onGround = false, hitWall = false;
+export function moveEntity(world: World, p: THREE.Vector3, v: THREE.Vector3, dt: number, hw: number, h: number, canStep = false) {
+  let onGround = false, hitWall = false, stepped = 0;
   const steps = Math.max(1, Math.ceil((Math.max(Math.abs(v.x), Math.abs(v.y), Math.abs(v.z)) * dt) / 0.2));
   const sdt = dt / steps;
+  // grounded check before moving, so step-up only happens while walking
+  p.y -= 0.05;
+  const grounded = collides(world, p, hw, h);
+  p.y += 0.05;
   for (let s = 0; s < steps; s++)
     for (const a of ["x", "y", "z"] as const) {
       const d = v[a] * sdt;
       if (!d) continue;
       p[a] += d;
       if (collides(world, p, hw, h)) {
+        if (a !== "y" && canStep && grounded) {
+          // auto step-up onto a single block ledge
+          const oy = p.y;
+          p.y = Math.floor(p.y + 0.001) + 1.001;
+          if (p.y - oy <= 1.05 && !collides(world, p, hw, h)) { stepped += p.y - oy; continue; }
+          p.y = oy;
+        }
         p[a] -= d;
         if (a === "y") {
           if (v.y < 0) onGround = true;
@@ -273,7 +284,8 @@ export function moveEntity(world: World, p: THREE.Vector3, v: THREE.Vector3, dt:
         v[a] = 0;
       }
     }
-  return { onGround, hitWall };
+  if (stepped) onGround = true;
+  return { onGround, hitWall, stepped };
 }
 
 export function raycast(world: World, o: THREE.Vector3, d: THREE.Vector3, max: number) {
