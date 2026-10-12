@@ -153,9 +153,11 @@ export function drawAtlas(): HTMLCanvasElement {
     return mul(mix([168, 96, 60], [206, 140, 92], ring), 0.95 + (n - 0.5) * 0.1);
   });
   put(6, (u, v, n) => {
-    const l = M(u, v, 8, 3);
-    if (l < 0.38) return [0, 0, 0, 0];
-    return mul(mix([70, 96, 36], [128, 146, 62], N(u, v, 8, 3)), 0.75 + l * 0.5 + (n - 0.5) * 0.1);
+    // dense acacia foliage: small leaflet clusters, only a few tiny gaps
+    const l = M(u, v, 16, 3), big = N(u, v, 4, 2);
+    if (l < 0.22 && n > 0.4) return [0, 0, 0, 0];
+    const base = mix([86, 112, 40], [150, 160, 70], big);
+    return mul(base, 0.8 + l * 0.4 + (n - 0.5) * 0.18);
   });
   put(7, (u, v, n) => mul(mix([214, 170, 112], [236, 200, 140], N(u, v, 8, 3)), 0.94 + (n - 0.5) * 0.14));
   put(8, (u, v, n) => {
