@@ -112,22 +112,29 @@ export class World {
           }
           c[idx(x, h, z)] = B.DIRT;
         } else if (r < 0.014) {
-          // Acacia: thin leaning trunk, wide flat umbrella canopy
-          const th = 4 + Math.floor(hash2(wx, wz, this.seed + 5) * 3);
-          const lean = hash2(wx, wz, this.seed + 9);
-          const ldx = lean < 0.25 ? 1 : lean < 0.5 ? -1 : 0, ldz = lean > 0.75 ? 1 : lean > 0.5 ? -1 : 0;
-          let tx = x, tz = z;
-          for (let y = h + 1; y <= h + th; y++) {
-            if (y === h + th - 1) { tx += ldx; tz += ldz; }
-            put(tx, y, tz, B.LOG, true);
-          }
-          const cy = h + th + 1;
-          for (let dz = -3; dz <= 3; dz++)
-            for (let dx = -3; dx <= 3; dx++) {
-              const d = dx * dx + dz * dz;
-              if (d <= 10) put(tx + dx, cy, tz + dz, B.LEAVES);
-              if (d <= 3) put(tx + dx, cy + 1, tz + dz, B.LEAVES);
+          // Acacia: straight trunk that forks into 2 rising limbs, each carrying a flat umbrella pad
+          const th = 3 + Math.floor(hash2(wx, wz, this.seed + 5) * 2);
+          for (let y = h + 1; y <= h + th; y++) put(x, y, z, B.LOG, true);
+          const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+          const d0 = Math.floor(hash2(wx, wz, this.seed + 9) * 4);
+          const limbs = [DIRS[d0], DIRS[d0 ^ 1]]; // opposite directions
+          if (hash2(wx, wz, this.seed + 13) > 0.6) limbs.push(DIRS[(d0 + 2) % 4]);
+          const tips: number[][] = [];
+          for (const [ldx, ldz] of limbs) {
+            let bx = x, by = h + th, bz = z;
+            for (let s2 = 0; s2 < 2; s2++) {
+              bx += ldx; bz += ldz; put(bx, by, bz, B.LOG, true); // diagonal staircase stays connected
+              by++; put(bx, by, bz, B.LOG, true);
             }
+            tips.push([bx, by, bz]);
+          }
+          for (const [tx, ty, tz] of tips)
+            for (let dz = -3; dz <= 3; dz++)
+              for (let dx = -3; dx <= 3; dx++) {
+                const d = dx * dx + dz * dz;
+                if (d <= 8) put(tx + dx, ty + 1, tz + dz, B.LEAVES);
+                if (d <= 3) put(tx + dx, ty + 2, tz + dz, B.LEAVES);
+              }
           c[idx(x, h, z)] = B.DIRT;
         }
       }
