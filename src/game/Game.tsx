@@ -69,9 +69,9 @@ function Sky() {
   const sun = useRef<THREE.DirectionalLight>(null);
   const sunMesh = useRef<THREE.Mesh>(null);
   const moonMesh = useRef<THREE.Mesh>(null);
-  const day = useMemo(() => new THREE.Color("#8fc4ec"), []);
-  const dusk = useMemo(() => new THREE.Color("#e98d5a"), []);
-  const night = useMemo(() => new THREE.Color("#0a0f24"), []);
+  const day = useMemo(() => new THREE.Color("#f2c98a"), []);
+  const dusk = useMemo(() => new THREE.Color("#d4552c"), []);
+  const night = useMemo(() => new THREE.Color("#120a2a"), []);
   const col = useMemo(() => new THREE.Color(), []);
   const acc = useRef(0);
   useFrame((_, delta) => {
@@ -93,7 +93,7 @@ function Sky() {
       const s = sun.current;
       s.intensity = 2.4 * light;
       // warm low sun at dawn/dusk, neutral at noon
-      s.color.setRGB(1, 0.78 + 0.2 * Math.min(1, sy * 2), 0.6 + 0.35 * Math.min(1, sy * 2));
+      s.color.setRGB(1, 0.7 + 0.22 * Math.min(1, sy * 2), 0.45 + 0.3 * Math.min(1, sy * 2));
       // snap to texel-ish grid to reduce shadow shimmer while walking
       const px = Math.round(g.pos.x), py = Math.round(g.pos.y), pz = Math.round(g.pos.z);
       s.position.set(px + Math.cos(a) * 40, py + Math.max(sy, 0.15) * 50, pz + 15);
@@ -113,8 +113,8 @@ function Sky() {
   });
   return (
     <>
-      <fog attach="fog" args={["#8fc4ec", 18, RADIUS * CH - 4]} />
-      <hemisphereLight ref={amb} args={["#bcd8f0", "#5a4a32", 0.7]} />
+      <fog attach="fog" args={["#f2c98a", 18, RADIUS * CH - 4]} />
+      <hemisphereLight ref={amb} args={["#ffe2b0", "#8a3a1e", 0.7]} />
       <directionalLight
         ref={sun}
         intensity={2}
