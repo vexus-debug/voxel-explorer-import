@@ -111,6 +111,11 @@ function Sky() {
       u.sunCol.value.setRGB(1, 0.75 + 0.2 * Math.min(1, Math.max(0, sy * 2)), 0.5 + 0.35 * Math.min(1, Math.max(0, sy * 2)));
       u.night.value = 1 - light;
     }
+    acc.current += dt;
+    if (acc.current > 1) {
+      acc.current = 0;
+      emit();
+    }
   });
   const skyMat = useMemo(
     () =>
