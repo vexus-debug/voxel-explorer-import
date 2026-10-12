@@ -104,7 +104,7 @@ function Sky() {
     // sky dome follows the camera; sun & moon are drawn as round discs with glow in its shader
     if (sunMesh.current) {
       sunMesh.current.position.set(g.pos.x, g.pos.y + 1.62, g.pos.z);
-      const u = skyMat.uniforms;
+      const u = skyMat.uniforms as any;
       u.sunDir.value.set(Math.cos(a), sy, 0.25).normalize();
       u.zenith.value.copy(col).multiplyScalar(0.55 + 0.15 * light).lerp(night, (1 - light) * 0.5);
       u.horizon.value.copy(col).lerp(WHITE, 0.18 * light);
