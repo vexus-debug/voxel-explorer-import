@@ -228,7 +228,8 @@ export function buildChunkGeometry(world: World, cx: number, cz: number) {
             const u = (tc + (c[3] ? 1 - eps : eps)) / ATLAS_COLS;
             const v = 1 - (tr + 1 - (c[4] ? 1 - eps : eps)) / ATLAS_COLS;
             uv.push(u, v);
-            const l = (0.82 + 0.18 * F.s) * ao[k++];
+            // foliage scatters light through itself, so its undersides never go pitch black
+            const l = id === B.LEAVES ? 0.9 + 0.1 * F.s * ao[k++] + 0.25 : (0.82 + 0.18 * F.s) * ao[k++];
             col.push(l, l, l);
           }
           // flip quad diagonal to avoid anisotropic AO artifacts
