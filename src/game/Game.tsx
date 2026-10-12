@@ -85,21 +85,31 @@ function Sky() {
     col.copy(night).lerp(day, light).lerp(dusk, duskAmt * light + duskAmt * 0.3);
     scene.background = col;
     if (scene.fog) (scene.fog as THREE.Fog).color.copy(col);
+    const moon = 1 - light;
     if (amb.current) {
-      amb.current.intensity = 0.25 + 0.55 * light;
-      amb.current.color.copy(col).lerp(WHITE, 0.4);
+      amb.current.intensity = 0.25 + 0.55 * light + 0.2 * moon;
+      amb.current.color.copy(col).lerp(WHITE, 0.4).lerp(MOON_AMB, moon * 0.7);
     }
     if (sun.current) {
       const s = sun.current;
-      s.intensity = 2.4 * light;
-      // warm low sun at dawn/dusk, neutral at noon
-      s.color.setRGB(1, 0.7 + 0.22 * Math.min(1, sy * 2), 0.45 + 0.3 * Math.min(1, sy * 2));
+      // the same light acts as the sun by day and the moon (opposite side of the sky) by night
+      const isMoon = sy < 0;
+      const ly = isMoon ? -sy : sy;
+      const lx = isMoon ? -Math.cos(a) : Math.cos(a);
+      if (isMoon) {
+        s.intensity = 0.75 * moon;
+        s.color.copy(MOON_COL);
+      } else {
+        s.intensity = 2.4 * light;
+        // warm low sun at dawn/dusk, neutral at noon
+        s.color.setRGB(1, 0.7 + 0.22 * Math.min(1, sy * 2), 0.45 + 0.3 * Math.min(1, sy * 2));
+      }
       // snap to texel-ish grid to reduce shadow shimmer while walking
       const px = Math.round(g.pos.x), py = Math.round(g.pos.y), pz = Math.round(g.pos.z);
-      s.position.set(px + Math.cos(a) * 40, py + Math.max(sy, 0.15) * 50, pz + 15);
+      s.position.set(px + lx * 40, py + Math.max(ly, 0.15) * 50, pz + 15);
       s.target.position.set(px, py, pz);
       s.target.updateMatrixWorld();
-      s.castShadow = light > 0.05;
+      s.castShadow = s.intensity > 0.05;
     }
     // sky dome follows the camera; sun & moon are drawn as round discs with glow in its shader
     if (sunMesh.current) {
